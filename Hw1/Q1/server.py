@@ -36,7 +36,8 @@ class Server_tcp:
                     break
                 message = data.decode()
                 self.handle_message(new_client, message)
-            except:
+            except Exception as e:
+                print(e)
                 break
 
         all_clients.remove(new_client)
@@ -89,8 +90,8 @@ class Server_tcp:
     def send_group_message(self, sender, group_id: str, content: str):
         if group_id in sender.group_chats:
             for cl in all_clients:
-                if group_id in Client(cl).group_chats:
-                    Client(cl).cl_socket.send(f"{sender.username}: {content} in {group_id}".encode())
+                if group_id in cl.group_chats:
+                    cl.cl_socket.send(f"{sender.username}: {content} in {group_id}".encode())
         else:
             sender.cl_socket.send("You are not in this group".encode())
 
