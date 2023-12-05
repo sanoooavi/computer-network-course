@@ -1,4 +1,5 @@
 from socket import *
+import threading
 from collections import Counter
 
 
@@ -21,21 +22,30 @@ def transform_tcp(client_data):
     least = ctr.most_common()[-1][1]
     maximum = -1
     for t in ctr.most_common():
-        if t[1] == least and t[0] != ' ' and maximum < dm[t[0]]:
+        if t[1] == least and t[0] in dm.keys() and maximum < dm[t[0]]:
             maximum = dm[t[0]]
-    return ''.join(list(map(lambda s: str(dm[s]) if s != ' ' else ' ', client_data))) + " , " + str(maximum)
+    return ''.join(list(map(lambda s: str(dm[s]) if s in dm.keys() else s, client_data))) + " , " + str(maximum)
+
+
+def tcp_client_thread(client_socket, address):
+    while True:
+        data = client_socket.recv(1024)
+        if not data:
+            break
+        msg = data.decode()
+        if msg == 'exit':
+            print(f"tcp client with address {address} disconnected")
+            break
+        msg = transform_tcp(msg)
+        client_socket.send(msg.encode())
 
 
 server_port = 12000
 server_socket = socket(AF_INET, SOCK_STREAM)
 server_socket.bind(("", server_port))
-server_socket.listen(1)
+server_socket.listen(5)
 print("TCP Server Started")
 while True:
     connection_socket, addr = server_socket.accept()
-    message = connection_socket.recv(1024).decode()
-    if message == 'exit':
-        print(f"tcp client with address {addr} disconnected")
-
-    tcp_response = transform_tcp(message)
-    connection_socket.send(tcp_response.encode())
+    client_thread = threading.Thread(target=tcp_client_thread, args=(connection_socket, addr))
+    client_thread.start()

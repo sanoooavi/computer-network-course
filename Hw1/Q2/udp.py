@@ -12,5 +12,4 @@ while message != "exit":
     message = input("input the udp Message")
 
 client_socket.sendto(message.encode(), (server_name, server_port))
-client_socket.close()
 

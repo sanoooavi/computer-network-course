@@ -8,6 +8,6 @@ while message != "exit":
     client_socket.send(message.encode())
     modified_message = client_socket.recv(1024)
     print("From Server : " + modified_message.decode())
+    message = input("input the tcp Message")
 
 client_socket.send(message.encode())
-client_socket.close()
