@@ -27,9 +27,14 @@ def transform_tcp(client_data):
     return ''.join(list(map(lambda s: str(dm[s]) if s in dm.keys() else s, client_data))) + " , " + str(maximum)
 
 
-def tcp_client_thread(client_socket, address):
+def transform_udp(client_data):
+    counted = Counter(client_data)
+    return client_data.upper()[::-1] + " , " + counted.most_common()[0][0].upper()
+
+
+def tcp_client_thread(tcp_socket, address):
     while True:
-        data = client_socket.recv(1024)
+        data = tcp_socket.recv(1024)
         if not data:
             break
         msg = data.decode()
@@ -37,7 +42,7 @@ def tcp_client_thread(client_socket, address):
             print(f"tcp client with address {address} disconnected")
             break
         msg = transform_tcp(msg)
-        client_socket.send(msg.encode())
+        tcp_socket.send(msg.encode())
 
 
 server_port = 12000

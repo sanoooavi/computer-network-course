@@ -13,7 +13,6 @@ print("UDP server started")
 
 while True:
     data, addr = udp_socket.recvfrom(1024)
-    print(data.decode())
     if data.decode() == "exit" or not data:
         print(f"udp client with address {addr} disconnected")
     udp_response = transform_udp(data.decode())
