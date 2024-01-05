@@ -1,3 +1,4 @@
+import os
 import socket
 import threading
 import time
@@ -17,6 +18,10 @@ class Server_tcp:
     def start(self):
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
+        if os.path.exists("D:\\uni\\sem7\\network\\computer-network-course\\Hw2\\Q1\\client_history.txt"):
+            self.load_client_history()
+        if os.path.exists("D:\\uni\\sem7\\network\\computer-network-course\\Hw2\\Q1\\client_list.txt"):
+            self.load_clients_from_file()
         print(f"TCP server started on {self.host}:{self.port}")
 
         while True:
@@ -27,21 +32,27 @@ class Server_tcp:
         username = client_socket.recv(1024).decode()
         hashed_password = client_socket.recv(1024).decode()
 
-        if self.is_username_taken(username):
-            client_socket.send("Username already taken. Please choose a different username.".encode())
-            client_socket.close()
-            print(f"Connection from {address} rejected - Username already taken: {username}")
-            return
+        new_client = self.get_client_by_username(username)
 
-        new_client = Client(client_socket, username, hashed_password)
-        all_clients.append(new_client)
+        if new_client is not None and new_client.username == username:
+            print('ta inja kar mikone 1')
+            if new_client.password == hashed_password:
+                new_client.cl_socket = client_socket
+                client_socket.send('welcome back'.encode())
+                if username in client_history:
+                    previous_messages = client_history[username]
+                    for timestamp, message in previous_messages:
+                        client_socket.send(f"{timestamp} - {message}".encode())
+            else:
+                client_socket.send("Username already taken. Please choose a different username.".encode())
+                client_socket.close()
+                print(f"Connection from {address} rejected - Username already taken: {username}")
+                return
+        else:
+            new_client = Client(client_socket, username, hashed_password)
+            all_clients.append(new_client)
+            self.add_client_to_file(new_client)
         print(f"New connection from {address}, username: {username}, password: {hashed_password}")
-
-        if username in client_history:
-            previous_messages = client_history[username]
-            for timestamp, message in previous_messages:
-                client_socket.send(f"{timestamp} - {message}".encode())
-
         while True:
             try:
                 data = client_socket.recv(1024)
@@ -53,10 +64,23 @@ class Server_tcp:
             except Exception as e:
                 print(e)
                 break
-
         all_clients.remove(new_client)
         client_socket.close()
         print(f"Connection with {address}, username: {username} closed")
+
+    def add_client_to_file(self, client):
+        with open('client_list.txt', 'a') as file:
+            file.write(f"Username: {client.username}, Password: {client.password}\n")
+
+    def load_clients_from_file(self):
+        with open('client_list.txt', 'r') as file:
+            lines = file.readlines()
+            for line in lines:
+                if line.startswith('Username:'):
+                    username = line.split(',')[0].split(':')[1].strip()
+                    password = line.split(',')[1].split(':')[1].strip()
+                    new_client = Client(None, username, password)
+                    all_clients.append(new_client)
 
     def handle_message(self, sender, message):
         if message.startswith("/join"):
@@ -107,12 +131,14 @@ class Server_tcp:
         else:
             client.group_chats.append(group_name)
             client.cl_socket.send(f"You joined the group: {group_name}".encode())
+        return
 
     def send_private_message(self, sender_username, content, recipient):
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         recipient.cl_socket.send(f"{timestamp} - {sender_username}: {content}".encode())
 
     def send_group_message(self, sender, group_id, content):
+        print('ta inja reside')
         if group_id in sender.group_chats:
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             for cl in all_clients:
@@ -130,14 +156,40 @@ class Server_tcp:
     def is_username_taken(self, username):
         for client in all_clients:
             if client.username == username:
-                return True
-        return False
+                return client
+        return None
 
     def add_message_to_history(self, username, timestamp, message):
         if username in client_history:
             client_history[username].append((timestamp, message))
         else:
             client_history[username] = [(timestamp, message)]
+
+    def save_client_history(self):
+        with open('client_history.txt', 'w') as file:
+            for username, messages in client_history.items():
+                file.write(f"Username: {username}\n")
+                for timestamp, message in messages:
+                    file.write(f"{timestamp} - {message}\n")
+
+    def load_client_history(self):
+        try:
+            with open('client_history.txt', 'r') as file:
+                lines = file.readlines()
+                username = ''
+                for line in lines:
+                    if line.startswith('Username:'):
+                        username = line.split(':')[1].strip()
+                        client_history[username] = []
+                    else:
+                        timestamp, message = line.strip().split(' - ', 1)
+                        client_history[username].append((timestamp, message))
+        except FileNotFoundError:
+            print("No client history file found.")
+
+    def shutdown(self):
+        self.save_client_history()
+        self.server_socket.close()
 
 
 class Server_udp:
@@ -152,10 +204,13 @@ class Server_udp:
         while True:
             data, client_address = self.server_socket.recvfrom(1024)
             username_list = '-'.join([obj.username for obj in all_clients])
-            print(client_address)
+            # print(client_address)
             # timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             # self.add_message_to_history(sender.username, timestamp, message)
             self.server_socket.sendto(username_list.encode(), client_address)
+
+    def shutdown(self):
+        self.server_socket.close()
 
 
 if __name__ == "__main__":
@@ -164,6 +219,19 @@ if __name__ == "__main__":
 
     tcp_thread = threading.Thread(target=tcp_server.start)
     udp_thread = threading.Thread(target=udp_server.start)
-
     tcp_thread.start()
     udp_thread.start()
+    try:
+        while True:
+            inp = input()
+            if inp == 'exit':
+                print(inp)
+                tcp_server.shutdown()
+                # udp_server.shutdown()
+                exit(1)
+                print("After exit")  # This line will not be executed
+            time.sleep(1)
+    except KeyboardInterrupt:
+        tcp_server.shutdown()
+        udp_server.shutdown()
+        exit()
