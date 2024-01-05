@@ -18,9 +18,9 @@ class Server_tcp:
     def start(self):
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
-        if os.path.exists("D:\\uni\\sem7\\network\\computer-network-course\\Hw2\\Q1\\client_history.txt"):
+        if os.path.exists("D:\\works\\study\\Term-7\\CN\\HWS\\computer-network-course\\Hw2\\Q1\\client_history.txt"):
             self.load_client_history()
-        if os.path.exists("D:\\uni\\sem7\\network\\computer-network-course\\Hw2\\Q1\\client_list.txt"):
+        if os.path.exists("D:\\works\\study\\Term-7\\CN\\HWS\\computer-network-course\\Hw2\\Q1\\client_list.txt"):
             self.load_clients_from_file()
         print(f"TCP server started on {self.host}:{self.port}")
 
@@ -33,9 +33,7 @@ class Server_tcp:
         hashed_password = client_socket.recv(1024).decode()
 
         new_client = self.get_client_by_username(username)
-
         if new_client is not None and new_client.username == username:
-            print('ta inja kar mikone 1')
             if new_client.password == hashed_password:
                 new_client.cl_socket = client_socket
                 client_socket.send('welcome back'.encode())
@@ -64,7 +62,7 @@ class Server_tcp:
             except Exception as e:
                 print(e)
                 break
-        all_clients.remove(new_client)
+        self.get_client_by_username(new_client.username).status = "Busy"
         client_socket.close()
         print(f"Connection with {address}, username: {username} closed")
 
@@ -83,10 +81,15 @@ class Server_tcp:
                     all_clients.append(new_client)
 
     def handle_message(self, sender, message):
+
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        self.add_message_to_history(sender.username, timestamp, message)
+
         if message.startswith("/join"):
             group_name = message.split()[1]
             self.join_group(sender, group_name)
-
+        elif message.startswith("/status"):
+            sender.set_status('Available' if sender.status == 'Busy' else 'Busy')
         elif message.startswith("/private"):
             try:
                 recipient_username, content = message.split(maxsplit=2)[1:]
@@ -121,9 +124,6 @@ class Server_tcp:
 
         else:
             sender.cl_socket.send("Invalid command".encode())
-
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-        self.add_message_to_history(sender.username, timestamp, message)
 
     def join_group(self, client, group_name):
         if group_name in client.group_chats:

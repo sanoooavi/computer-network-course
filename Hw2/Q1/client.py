@@ -31,7 +31,9 @@ class Client:
         while True:
             message = str(input())
             if message == '/status':
+                self.cl_socket.send(message.encode())
                 self.set_status('Available' if self.status == 'Busy' else 'Busy')
+                print("Your new status is:", self.status)
                 continue
             if self.status == 'Busy':
                 print("You are currently in Busy mode and cannot send messages.")
